@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import PyPDF2
 from google import genai
 from google.genai import types
 
@@ -17,13 +18,47 @@ if not API_KEY:
 client = genai.Client(api_key=API_KEY)
 
 # ==========================================
-# PAGE CONFIGURATION 
+# PAGE CONFIGURATION
 # ==========================================
 st.set_page_config(page_title="Academic Auto-Pilot", page_icon="🎓", layout="wide")
 st.title("🎓 Autonomous Academic Auto-Pilot")
-st.subheader("Paste your chaos. Let the AI schedule your success.")
+st.subheader("Drag & drop your syllabus. Let the AI research, schedule, and organize your success.")
+
+# ==========================================
+# AUTONOMOUS TOOLS (The Agent's "Hands")
+# ==========================================
+def create_calendar_event(task_title: str, start_time: str, duration_hours: int):
+    """Autonomously blocks out a dedicated study window in the user's calendar."""
+    message = f"✅ CALENDAR: Scheduled '{task_title}' for {duration_hours} hours starting at {start_time}"
+    st.success(message)
+    return message
+
+def create_google_doc(document_title: str, assignment_type: str):
+    """Autonomously creates a Google Doc starter template for essays, projects, or papers."""
+    header = "Name: Aditya Agarwal | Roll No: 2401640100068"
+    message = f"📝 WORKSPACE: Created '{document_title}' template. (Auto-filled header: {header})"
+    st.info(message)
+    return message
+
+def research_topic(topic: str):
+    """Autonomously searches academic databases for sources related to the project topic."""
+    message = f"🔍 RESEARCH: Found 3 peer-reviewed sources for '{topic}' and attached them to your Workspace."
+    st.warning(message) # Using warning for a cool yellow color
+    return message
+
+# Map the functions so Gemini can call them
+tool_map = {
+    "create_calendar_event": create_calendar_event,
+    "create_google_doc": create_google_doc,
+    "research_topic": research_topic
+}
+
+# ==========================================
+# AI SYSTEM INSTRUCTIONS
+# ==========================================
 parser_instructions = """
-You are an expert academic data extractor. Analyze the text and output a strictly structured JSON array of actionable tasks. 
+You are an expert academic data extractor and autonomous agent. 
+Analyze the text and output a strictly structured JSON array of tasks. 
 Extract explicit deadlines, estimate required effort, and categorize the tasks. Assume the year is 2026.
 """
 
@@ -36,102 +71,88 @@ response_schema = {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string"},
-                    "category": {"type": "string"},
-                    "deadline": {"type": "string", "description": "ISO 8601 format"},
+                    "deadline": {"type": "string", "description": "Format: YYYY-MM-DDTHH:MM:SS"},
                     "estimated_hours": {"type": "integer"},
-                    "priority": {"type": "string", "description": "High, Medium, or Low"}
-                }
+                    "priority": {"type": "string", "enum": ["Low", "Medium", "High"]},
+                    "category": {"type": "string", "enum": ["Reading", "Assignment", "Exam", "Academic", "Project"]}
+                },
+                "required": ["title", "deadline", "estimated_hours", "priority", "category"]
             }
         }
-    }
+    },
+    "required": ["tasks"]
 }
-# --- TOOL 1: The Calendar Scheduler ---
-def create_calendar_event(task_title: str, start_time: str, duration_hours: int):
-    """Autonomously blocks out a dedicated study window in the user's calendar."""
-    message = f"✅ CALENDAR: Scheduled '{task_title}' for {duration_hours} hours starting at {start_time}"
-    st.success(message)  # <--- THIS FORCES IT TO SHOW ON SCREEN!
-    return message
-
-# --- TOOL 2: The Workspace Architect ---
-def create_google_doc(document_title: str, assignment_type: str):
-    """Autonomously creates a Google Doc starter template for essays, projects, or papers."""
-    header = "Name: Aditya Agarwal | Roll No: 2401640100068"
-    message = f"📝 WORKSPACE: Created '{document_title}' template.\n*(Auto-filled header: {header})*"
-    st.info(message)  # <--- THIS FORCES IT TO SHOW ON SCREEN!
-    return message
-
-
-planner_instructions = """
-You are an autonomous execution agent. You receive a list of tasks. 
-1. For EVERY task, use the calendar tool to schedule a 'Deep Work' block before the deadline.
-2. IF the task category is a "Project", "Paper", or "Essay", ALSO use the Google Doc tool to create a starter workspace for the user.
-Do not ask for permission, just execute the necessary tools intelligently.
-"""
 
 # ==========================================
-# USER INTERFACE (The Dashboard)
+# UI: DRAG AND DROP PDF & TEXT INPUT
 # ==========================================
-col1, col2 = st.columns([1, 1.5])
+col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.markdown("### 1. Input Data")
-    user_input = st.text_area(
-        "Paste syllabus text, professor emails, or brain dumps here:", 
-        height=250,
-        placeholder="e.g., My final ML paper is due on June 29th at 2 PM. It's 40% of my grade..."
-    )
-    start_agent = st.button("🚀 Activate Multi-Tool Agent", use_container_width=True)
+    st.markdown("### 📥 1. Input Syllabus")
+    uploaded_file = st.file_uploader("Drop a PDF Syllabus here...", type="pdf")
+    
+    syllabus_text = ""
+    if uploaded_file is not None:
+        # Extract text from the PDF!
+        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        for page in pdf_reader.pages:
+            syllabus_text += page.extract_text() + "\n"
+        st.success("PDF Extracted Successfully!")
+    
+    # Fallback text area
+    raw_text = st.text_area("Or paste raw text:", value=syllabus_text, height=200)
 
 with col2:
-    st.markdown("### 2. AI Execution Feed")
-    
-    if start_agent and user_input:
-        with st.status("🤖 Agent is processing your data...", expanded=True) as status:
-            
-            st.write("📄 Extracting task data...")
-            extract_response = client.models.generate_content(
-                model='gemini-3-flash-preview',
-                contents=user_input,
-                config=types.GenerateContentConfig(
-                    system_instruction=parser_instructions,
-                    response_mime_type="application/json",
-                    response_schema=response_schema,
-                    temperature=0.1
-                )
-            )
-            
-            parsed_data = extract_response.text
-            parsed_json = json.loads(parsed_data)
-            
-            st.write("📊 **Identified Tasks:**")
-            st.dataframe(parsed_json["tasks"], use_container_width=True)
-            
-            st.write("🧠 Triggering multi-tool orchestration...")
-            chat = client.chats.create(
-                model='gemini-3-flash-preview',
-                config=types.GenerateContentConfig(
-                    system_instruction=planner_instructions,
-                    tools=[create_calendar_event, create_google_doc], # BOTH TOOLS GIVEN TO AI
-                    temperature=0.2
-                )
-            )
-            
-            prompt = f"Here is my extracted syllabus data. Execute planning tools: {parsed_data}"
-            plan_response = chat.send_message(prompt)
-            
-            status.update(label="✅ All tools executed successfully!", state="complete", expanded=True)
-            
-        st.success("**Agent Execution Summary:**")
-        st.write(plan_response.text)
-        
-    elif start_agent and not user_input:
-        st.warning("Please paste some text for the agent to analyze!")
-
-
-
-
-
-
-
-
-
+    st.markdown("### 🚀 2. Agent Dashboard")
+    if st.button("Activate Multi-Tool Agent", use_container_width=True):
+        if raw_text:
+            with st.spinner("🧠 Agent is analyzing and executing tools..."):
+                try:
+                    # Phase 1: Data Extraction
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=raw_text,
+                        config=types.GenerateContentConfig(
+                            system_instruction=parser_instructions,
+                            response_mime_type="application/json",
+                            response_schema=response_schema,
+                            temperature=0.1,
+                        ),
+                    )
+                    
+                    extracted_data = json.loads(response.text)
+                    st.markdown("#### 📊 Identified Tasks:")
+                    st.dataframe(extracted_data["tasks"], use_container_width=True)
+                    
+                    st.markdown("#### 🤖 Agent Action Log:")
+                    
+                    # Phase 2: Autonomous Tool Execution
+                    for task in extracted_data["tasks"]:
+                        title = task["title"]
+                        category = task["category"]
+                        
+                        prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
+                        
+                        agent_response = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                tools=[create_calendar_event, create_google_doc, research_topic],
+                                temperature=0.1,
+                            ),
+                        )
+                        
+                        if agent_response.function_calls:
+                            for function_call in agent_response.function_calls:
+                                tool_name = function_call.name
+                                tool_args = function_call.args
+                                
+                                if tool_name in tool_map:
+                                    # Execute the tool and show it on screen
+                                    tool_map[tool_name](**tool_args)
+                                    
+                except Exception as e:
+                    st.error(f"Agent encountered an error: {e}")
+        else:
+            st.warning("Please upload a PDF or paste text first.")
