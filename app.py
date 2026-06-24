@@ -43,7 +43,7 @@ def create_google_doc(document_title: str, assignment_type: str):
 def research_topic(topic: str):
     """Autonomously searches academic databases for sources related to the project topic."""
     message = f"🔍 RESEARCH: Found 3 peer-reviewed sources for '{topic}' and attached them to your Workspace."
-    st.warning(message) # Using warning for a cool yellow color
+    st.warning(message) 
     return message
 
 # Map the functions so Gemini can call them
@@ -54,7 +54,7 @@ tool_map = {
 }
 
 # ==========================================
-# AI SYSTEM INSTRUCTIONS
+# AI SYSTEM INSTRUCTIONS & SCHEMA (FIXED)
 # ==========================================
 parser_instructions = """
 You are an expert academic data extractor and autonomous agent. 
@@ -62,19 +62,20 @@ Analyze the text and output a strictly structured JSON array of tasks.
 Extract explicit deadlines, estimate required effort, and categorize the tasks. Assume the year is 2026.
 """
 
+# NOTICE: All "type" values are now UPPERCASE!
 response_schema = {
-    "type": "object",
+    "type": "OBJECT",
     "properties": {
         "tasks": {
-            "type": "array",
+            "type": "ARRAY",
             "items": {
-                "type": "object",
+                "type": "OBJECT",
                 "properties": {
-                    "title": {"type": "string"},
-                    "deadline": {"type": "string", "description": "Format: YYYY-MM-DDTHH:MM:SS"},
-                    "estimated_hours": {"type": "integer"},
-                    "priority": {"type": "string", "enum": ["Low", "Medium", "High"]},
-                    "category": {"type": "string", "enum": ["Reading", "Assignment", "Exam", "Academic", "Project"]}
+                    "title": {"type": "STRING"},
+                    "deadline": {"type": "STRING", "description": "Format: YYYY-MM-DDTHH:MM:SS"},
+                    "estimated_hours": {"type": "INTEGER"},
+                    "priority": {"type": "STRING", "enum": ["Low", "Medium", "High"]},
+                    "category": {"type": "STRING", "enum": ["Reading", "Assignment", "Exam", "Academic", "Project"]}
                 },
                 "required": ["title", "deadline", "estimated_hours", "priority", "category"]
             }
