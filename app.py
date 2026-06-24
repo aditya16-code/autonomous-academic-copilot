@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import PyPDF2
+import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -55,7 +56,7 @@ tool_map = {
 }
 
 # ==========================================
-# AI SYSTEM INSTRUCTIONS & SCHEMA (FIXED WITH PYDANTIC)
+# AI SYSTEM INSTRUCTIONS & SCHEMA
 # ==========================================
 parser_instructions = """
 You are an expert academic data extractor and autonomous agent. 
@@ -141,6 +142,9 @@ with col2:
                                 if tool_name in tool_map:
                                     # Execute the tool and show it on screen
                                     tool_map[tool_name](**tool_args)
+                                    
+                        # THE FIX: 15-second cooldown to stay completely under Google's 5-RPM limit
+                        time.sleep(15)
                                     
                 except Exception as e:
                     st.error(f"Agent encountered an error: {e}")
