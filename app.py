@@ -4,6 +4,7 @@ import os
 import PyPDF2
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
 
 # ==========================================
 # SECURE API KEY LOADING
@@ -54,7 +55,7 @@ tool_map = {
 }
 
 # ==========================================
-# AI SYSTEM INSTRUCTIONS & SCHEMA (FIXED)
+# AI SYSTEM INSTRUCTIONS & SCHEMA (FIXED WITH PYDANTIC)
 # ==========================================
 parser_instructions = """
 You are an expert academic data extractor and autonomous agent. 
@@ -62,27 +63,15 @@ Analyze the text and output a strictly structured JSON array of tasks.
 Extract explicit deadlines, estimate required effort, and categorize the tasks. Assume the year is 2026.
 """
 
-# NOTICE: All "type" values are now UPPERCASE!
-response_schema = {
-    "type": "OBJECT",
-    "properties": {
-        "tasks": {
-            "type": "ARRAY",
-            "items": {
-                "type": "OBJECT",
-                "properties": {
-                    "title": {"type": "STRING"},
-                    "deadline": {"type": "STRING", "description": "Format: YYYY-MM-DDTHH:MM:SS"},
-                    "estimated_hours": {"type": "INTEGER"},
-                    "priority": {"type": "STRING", "enum": ["Low", "Medium", "High"]},
-                    "category": {"type": "STRING", "enum": ["Reading", "Assignment", "Exam", "Academic", "Project"]}
-                },
-                "required": ["title", "deadline", "estimated_hours", "priority", "category"]
-            }
-        }
-    },
-    "required": ["tasks"]
-}
+class Task(BaseModel):
+    title: str
+    deadline: str = Field(description="Format: YYYY-MM-DDTHH:MM:SS")
+    estimated_hours: int
+    priority: str
+    category: str
+
+class TaskList(BaseModel):
+    tasks: list[Task]
 
 # ==========================================
 # UI: DRAG AND DROP PDF & TEXT INPUT
@@ -117,7 +106,7 @@ with col2:
                         config=types.GenerateContentConfig(
                             system_instruction=parser_instructions,
                             response_mime_type="application/json",
-                            response_schema=response_schema,
+                            response_schema=TaskList,
                             temperature=0.1,
                         ),
                     )
