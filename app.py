@@ -17,46 +17,69 @@ st.set_page_config(page_title="Academic Auto-Pilot", page_icon="🎓", layout="w
 # ==========================================
 st.markdown("""
 <style>
-    /* Hide the default Streamlit top menu and footer for a cleaner look */
+    /* Hide the default Streamlit top menu and footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
+    /* Force Pure Black Background and White Text */
+    .stApp {
+        background-color: #000000;
+        color: #ffffff;
+    }
+    
+    /* Ensure all headers and text are white */
+    h1, h2, h3, h4, h5, h6, p, label, span {
+        color: #ffffff !important;
+    }
+    
     /* Modern Button Styling */
     .stButton>button {
         border-radius: 12px;
-        background-color: #6366f1; /* Indigo color */
-        color: white;
+        background-color: #6366f1; /* Indigo accent color */
+        color: white !important;
         font-weight: 600;
         border: none;
         padding: 0.5rem 1rem;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     }
     .stButton>button:hover {
         background-color: #4f46e5;
         transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        color: white;
+        box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
     }
     
-    /* Soften the background of the text area */
+    /* Text Area Styling for Dark Mode */
     .stTextArea textarea {
         border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        background-color: #f8fafc;
+        border: 1px solid #333333;
+        background-color: #111111;
+        color: #ffffff !important;
     }
     
-    /* Style the file uploader */
+    /* File Uploader Styling for Dark Mode */
     [data-testid="stFileUploadDropzone"] {
         border-radius: 16px;
-        border: 2px dashed #cbd5e1;
-        background-color: #f8fafc;
+        border: 2px dashed #444444;
+        background-color: #111111;
         transition: all 0.3s ease;
     }
     [data-testid="stFileUploadDropzone"]:hover {
         border-color: #6366f1;
-        background-color: #e0e7ff;
+        background-color: #1a1b26;
+    }
+    
+    /* Expander and Dataframe tweaks */
+    [data-testid="stExpander"] {
+        background-color: #0a0a0a;
+        border: 1px solid #333333;
+        border-radius: 8px;
+    }
+    
+    /* Make metric values pop */
+    [data-testid="stMetricValue"] {
+        color: #6366f1 !important;
     }
 </style>
 """, unsafe_allow_html=True)
