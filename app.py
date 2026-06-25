@@ -167,10 +167,10 @@ with col2:
     st.divider()
 
     if st.button("Activate Multi-Tool Agent", use_container_width=True):
-        if raw_text:
+        if raw_text.strip(): # Check that text isn't just empty spaces
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
                 try:
-                    # Phase 1: Data Extraction (SWAPPED TO 1.5-FLASH)
+                    # Phase 1: Data Extraction
                     response = client.models.generate_content(
                         model='gemini-1.5-flash',
                         contents=raw_text,
@@ -182,7 +182,20 @@ with col2:
                         ),
                     )
                     
-                    extracted_data = json.loads(response.text)
+                    # Core Safety Check: Ensure response text actually exists
+                    if not response.text or response.text.strip() == "":
+                        st.error("🛑 The AI returned an empty response. The text might be too long, or the model was throttled. Please try submitting a smaller section of the text.")
+                        st.stop()
+                        
+                    try:
+                        extracted_data = json.loads(response.text)
+                    except json.JSONDecodeError:
+                        st.error("🛑 Received an invalid JSON format from the AI engine.")
+                        with st.expander("🔍 Debug Raw Response"):
+                            st.code(response.text)
+                        st.stop()
+                    
+                    # Display the extracted tasks table
                     st.markdown("#### 📊 Identified Tasks:")
                     st.dataframe(extracted_data["tasks"], use_container_width=True)
                     
@@ -194,7 +207,6 @@ with col2:
                             
                             prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
                             
-                            # Phase 2 Tool Execution (SWAPPED TO 1.5-FLASH)
                             agent_response = client.models.generate_content(
                                 model='gemini-1.5-flash',
                                 contents=prompt,
@@ -212,10 +224,10 @@ with col2:
                                     if tool_name in tool_map:
                                         tool_map[tool_name](**tool_args)
                                         
-                            # Lowered cooldown to 3 seconds since 1.5-flash allows much faster requests!
+                            # Safe 3-second cooldown
                             time.sleep(3)
                                     
                 except Exception as e:
-                    st.error(f"Agent encountered an error: {e}")
+                    st.error(f"Agent encountered a system error: {e}")
         else:
-            st.warning("Please upload a PDF or paste text first.")
+            st.warning("Please upload a PDF or paste syllabus text first. The input field cannot be blank.")
