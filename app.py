@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import PyPDF2
+from datetime import datetime, timedelta
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -61,6 +62,33 @@ st.title("🎓 Autonomous Academic Auto-Pilot")
 st.subheader("Drag & drop your syllabus. Let the AI research, schedule, and organize your success.")
 
 # ==========================================
+# FEATURE 2: CALENDAR GENERATOR (.ICS)
+# ==========================================
+def generate_ics(tasks):
+    """Generates an iCalendar file content from the task list."""
+    ics_content = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Academic Auto-Pilot//EN\n"
+    for task in tasks:
+        try:
+            # We assume the AI returns deadline in YYYY-MM-DDTHH:MM:SS
+            end_time = datetime.strptime(task['deadline'], "%Y-%m-%dT%H:%M:%S")
+            # Schedule start time based on estimated hours
+            start_time = end_time - timedelta(hours=task['estimated_hours'])
+            
+            dtstart = start_time.strftime("%Y%m%dT%H%M%S")
+            dtend = end_time.strftime("%Y%m%dT%H%M%S")
+            
+            ics_content += "BEGIN:VEVENT\n"
+            ics_content += f"SUMMARY:{task['title']} [{task['priority']} Priority]\n"
+            ics_content += f"DESCRIPTION:Category: {task['category']}\n"
+            ics_content += f"DTSTART:{dtstart}\n"
+            ics_content += f"DTEND:{dtend}\n"
+            ics_content += "END:VEVENT\n"
+        except Exception:
+            pass # Skip if date parsing fails
+    ics_content += "END:VCALENDAR"
+    return ics_content
+
+# ==========================================
 # TOOLS
 # ==========================================
 def create_calendar_event(task_title: str, start_time: str, duration_hours: int):
@@ -85,10 +113,15 @@ tool_map = {
     "research_topic": research_topic
 }
 
+# ==========================================
+# FEATURE 1: SMART SUB-TASKING INSTRUCTIONS
+# ==========================================
 parser_instructions = """
 You are an expert academic data extractor and autonomous agent. 
 Analyze the text and output a strictly structured JSON array of tasks. 
 Extract explicit deadlines, estimate required effort, and categorize the tasks. Assume the year is 2026.
+
+CRITICAL RULE FOR SMART SUB-TASKING: If any single task requires more than 3 hours of effort, you MUST break it down into smaller, logical sub-tasks (e.g., "Phase 1: Research", "Phase 2: Drafting"). No single task in the output should have an estimated_hours value greater than 3.
 """
 
 class Task(BaseModel):
@@ -149,11 +182,17 @@ with col2:
                     st.markdown("#### 📊 Identified Tasks:")
                     st.dataframe(extracted_data["tasks"], use_container_width=True)
                     
+                    # TRIGGER ICS GENERATOR
+                    ics_data = generate_ics(extracted_data["tasks"])
+                    st.download_button(
+                        label="📅 Download .ics Calendar File",
+                        data=ics_data,
+                        file_name="academic_calendar.ics",
+                        mime="text/calendar",
+                    )
+                    
                     with st.expander("🤖 View Agent Action Log", expanded=True):
-                        # ========================================================
-                        # PHASE 2: BATCH PROCESSING FIX
-                        # Convert all tasks to a string and send ONE prompt
-                        # ========================================================
+                        # Phase 2: Batch Processing Tool Execution
                         tasks_string = json.dumps(extracted_data["tasks"], indent=2)
                         batch_prompt = f"""
                         I have extracted the following academic tasks from my syllabus:
@@ -185,3 +224,41 @@ with col2:
                     st.error(f"Agent encountered a system error: {e}")
         else:
             st.warning("Please upload a PDF or paste text first.")
+
+# ==========================================
+# FEATURE 3: CHAT WITH SYLLABUS (RAG)
+# ==========================================
+st.divider()
+st.markdown("### 💬 Chat with your Syllabus")
+
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# React to user input
+if prompt := st.chat_input("Ask a question about grading, rules, or late policies..."):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Generate AI response
+    with st.chat_message("assistant"):
+        if raw_text.strip():
+            rag_prompt = f"Use the following syllabus document to answer the student's question accurately.\n\nSyllabus Data:\n{raw_text}\n\nStudent Question: {prompt}"
+            try:
+                chat_response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=rag_prompt
+                )
+                st.markdown(chat_response.text)
+                st.session_state.messages.append({"role": "assistant", "content": chat_response.text})
+            except Exception as e:
+                st.error("Cannot connect to AI. Check API limits.")
+        else:
+            st.warning("⚠️ Please upload a syllabus or paste text at the top first, so I can read it to answer your question!")
