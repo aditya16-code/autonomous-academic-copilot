@@ -8,27 +8,18 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 # ==========================================
-# PAGE CONFIGURATION
+# PAGE CONFIGURATION & CSS
 # ==========================================
 st.set_page_config(page_title="Academic Auto-Pilot", page_icon="🎓", layout="wide")
 
-# ==========================================
-# CUSTOM CSS INJECTION (DARK MODE)
-# ==========================================
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    .stApp {
-        background-color: #000000;
-        color: #ffffff;
-    }
-    
-    h1, h2, h3, h4, h5, h6, p, label, span {
-        color: #ffffff !important;
-    }
+    .stApp { background-color: #000000; color: #ffffff; }
+    h1, h2, h3, h4, h5, h6, p, label, span { color: #ffffff !important; }
     
     .stButton>button {
         border-radius: 12px;
@@ -43,47 +34,34 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #4f46e5;
         transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
     }
     
     .stTextArea textarea {
-        border-radius: 12px;
-        border: 1px solid #333333;
-        background-color: #111111;
-        color: #ffffff !important;
+        border-radius: 12px; border: 1px solid #333333;
+        background-color: #111111; color: #ffffff !important;
     }
     
     [data-testid="stFileUploadDropzone"] {
-        border-radius: 16px;
-        border: 2px dashed #444444;
-        background-color: #111111;
-        transition: all 0.3s ease;
+        border-radius: 16px; border: 2px dashed #444444;
+        background-color: #111111; transition: all 0.3s ease;
     }
     [data-testid="stFileUploadDropzone"]:hover {
-        border-color: #6366f1;
-        background-color: #1a1b26;
+        border-color: #6366f1; background-color: #1a1b26;
     }
     
     [data-testid="stExpander"] {
-        background-color: #0a0a0a;
-        border: 1px solid #333333;
-        border-radius: 8px;
+        background-color: #0a0a0a; border: 1px solid #333333; border-radius: 8px;
     }
-    
-    [data-testid="stMetricValue"] {
-        color: #6366f1 !important;
-    }
+    [data-testid="stMetricValue"] { color: #6366f1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# SECURE API KEY LOADING
+# API LOADING
 # ==========================================
 API_KEY = os.environ.get("GEMINI_API_KEY")
-
 if not API_KEY:
-    st.error("🚨 API Key not found! The app cannot run.")
-    st.info("If deploying to Streamlit Cloud, add GEMINI_API_KEY to your Advanced Settings > Secrets.")
+    st.error("🚨 API Key not found!")
     st.stop()
 
 client = genai.Client(api_key=API_KEY)
@@ -92,7 +70,7 @@ st.title("🎓 Autonomous Academic Auto-Pilot")
 st.subheader("Drag & drop your syllabus. Let the AI research, schedule, and organize your success.")
 
 # ==========================================
-# AUTONOMOUS TOOLS
+# TOOLS
 # ==========================================
 def create_calendar_event(task_title: str, start_time: str, duration_hours: int):
     message = f"✅ CALENDAR: Scheduled '{task_title}' for {duration_hours} hours starting at {start_time}"
@@ -116,9 +94,6 @@ tool_map = {
     "research_topic": research_topic
 }
 
-# ==========================================
-# AI SYSTEM INSTRUCTIONS & SCHEMA
-# ==========================================
 parser_instructions = """
 You are an expert academic data extractor and autonomous agent. 
 Analyze the text and output a strictly structured JSON array of tasks. 
@@ -136,43 +111,36 @@ class TaskList(BaseModel):
     tasks: list[Task]
 
 # ==========================================
-# UI: DRAG AND DROP PDF & TEXT INPUT
+# UI LAYOUT
 # ==========================================
 col1, col2 = st.columns([1, 1])
 
 with col1:
     st.markdown("### 📥 1. Input Syllabus")
     uploaded_file = st.file_uploader("Drop a PDF Syllabus here...", type="pdf")
-    
     syllabus_text = ""
     if uploaded_file is not None:
         pdf_reader = PyPDF2.PdfReader(uploaded_file)
         for page in pdf_reader.pages:
             syllabus_text += page.extract_text() + "\n"
         st.success("PDF Extracted Successfully!")
-    
     raw_text = st.text_area("Or paste raw text:", value=syllabus_text, height=200)
 
 with col2:
     st.markdown("### 🚀 2. Agent Dashboard")
-    
     dash_col1, dash_col2, dash_col3 = st.columns(3)
-    with dash_col1:
-        st.metric(label="Agent Status", value="Online", delta="Ready")
-    with dash_col2:
-        st.metric(label="Tasks Scheduled", value="0", delta="Awaiting Input")
-    with dash_col3:
-        st.metric(label="Time Saved", value="0 hrs", delta="Let's go!")
-        
+    with dash_col1: st.metric(label="Agent Status", value="Online", delta="Ready")
+    with dash_col2: st.metric(label="Tasks Scheduled", value="0", delta="Awaiting Input")
+    with dash_col3: st.metric(label="Time Saved", value="0 hrs", delta="Let's go!")
     st.divider()
 
     if st.button("Activate Multi-Tool Agent", use_container_width=True):
-        if raw_text.strip(): # Check that text isn't just empty spaces
+        if raw_text.strip():
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
                 try:
-                    # Phase 1: Data Extraction
+                    # USING 2.0-FLASH FOR EXTRACTION
                     response = client.models.generate_content(
-                        model='gemini-1.5-flash',
+                        model='gemini-2.0-flash',
                         contents=raw_text,
                         config=types.GenerateContentConfig(
                             system_instruction=parser_instructions,
@@ -182,33 +150,23 @@ with col2:
                         ),
                     )
                     
-                    # Core Safety Check: Ensure response text actually exists
                     if not response.text or response.text.strip() == "":
-                        st.error("🛑 The AI returned an empty response. The text might be too long, or the model was throttled. Please try submitting a smaller section of the text.")
+                        st.error("🛑 Empty response. Please submit a smaller text section.")
                         st.stop()
                         
-                    try:
-                        extracted_data = json.loads(response.text)
-                    except json.JSONDecodeError:
-                        st.error("🛑 Received an invalid JSON format from the AI engine.")
-                        with st.expander("🔍 Debug Raw Response"):
-                            st.code(response.text)
-                        st.stop()
-                    
-                    # Display the extracted tasks table
+                    extracted_data = json.loads(response.text)
                     st.markdown("#### 📊 Identified Tasks:")
                     st.dataframe(extracted_data["tasks"], use_container_width=True)
                     
                     with st.expander("🤖 View Agent Action Log", expanded=True):
-                        # Phase 2: Autonomous Tool Execution
                         for task in extracted_data["tasks"]:
                             title = task["title"]
                             category = task["category"]
-                            
                             prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
                             
+                            # USING 2.0-FLASH FOR TOOLS
                             agent_response = client.models.generate_content(
-                                model='gemini-1.5-flash',
+                                model='gemini-2.0-flash',
                                 contents=prompt,
                                 config=types.GenerateContentConfig(
                                     tools=[create_calendar_event, create_google_doc, research_topic],
@@ -220,14 +178,13 @@ with col2:
                                 for function_call in agent_response.function_calls:
                                     tool_name = function_call.name
                                     tool_args = function_call.args
-                                    
                                     if tool_name in tool_map:
                                         tool_map[tool_name](**tool_args)
                                         
-                            # Safe 3-second cooldown
-                            time.sleep(3)
+                            # HARD 15-SECOND COOLDOWN TO PREVENT 429 ERROR
+                            time.sleep(15)
                                     
                 except Exception as e:
                     st.error(f"Agent encountered a system error: {e}")
         else:
-            st.warning("Please upload a PDF or paste syllabus text first. The input field cannot be blank.")
+            st.warning("Please upload a PDF or paste text first.")
