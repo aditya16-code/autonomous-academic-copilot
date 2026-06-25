@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import os
 import PyPDF2
-import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -130,7 +129,7 @@ with col2:
         if raw_text.strip():
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
                 try:
-                    # FULLY SUPPORTED ACTIVE MODEL
+                    # Phase 1: Data Extraction
                     response = client.models.generate_content(
                         model='gemini-2.5-flash',
                         contents=raw_text,
@@ -151,30 +150,36 @@ with col2:
                     st.dataframe(extracted_data["tasks"], use_container_width=True)
                     
                     with st.expander("🤖 View Agent Action Log", expanded=True):
-                        for task in extracted_data["tasks"]:
-                            title = task["title"]
-                            category = task["category"]
-                            prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
-                            
-                            # FULLY SUPPORTED ACTIVE MODEL
-                            agent_response = client.models.generate_content(
-                                model='gemini-2.5-flash',
-                                contents=prompt,
-                                config=types.GenerateContentConfig(
-                                    tools=[create_calendar_event, create_google_doc, research_topic],
-                                    temperature=0.1,
-                                ),
-                            )
-                            
-                            if agent_response.function_calls:
-                                for function_call in agent_response.function_calls:
-                                    tool_name = function_call.name
-                                    tool_args = function_call.args
-                                    if tool_name in tool_map:
-                                        tool_map[tool_name](**tool_args)
-                                        
-                            # HARD 15-SECOND COOLDOWN TO PREVENT 429 ERROR
-                            time.sleep(15)
+                        # ========================================================
+                        # PHASE 2: BATCH PROCESSING FIX
+                        # Convert all tasks to a string and send ONE prompt
+                        # ========================================================
+                        tasks_string = json.dumps(extracted_data["tasks"], indent=2)
+                        batch_prompt = f"""
+                        I have extracted the following academic tasks from my syllabus:
+                        {tasks_string}
+                        
+                        Please analyze this list and execute the necessary tools for ALL of them at once:
+                        1. Schedule a calendar event for every task based on its estimated hours.
+                        2. Create a google doc workspace for any task categorized as an Assignment or Project.
+                        3. Research the topic for any task categorized as a Project.
+                        """
+                        
+                        agent_response = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=batch_prompt,
+                            config=types.GenerateContentConfig(
+                                tools=[create_calendar_event, create_google_doc, research_topic],
+                                temperature=0.1,
+                            ),
+                        )
+                        
+                        if agent_response.function_calls:
+                            for function_call in agent_response.function_calls:
+                                tool_name = function_call.name
+                                tool_args = function_call.args
+                                if tool_name in tool_map:
+                                    tool_map[tool_name](**tool_args)
                                     
                 except Exception as e:
                     st.error(f"Agent encountered a system error: {e}")
