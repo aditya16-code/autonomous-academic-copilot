@@ -8,6 +8,60 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 # ==========================================
+# PAGE CONFIGURATION
+# ==========================================
+st.set_page_config(page_title="Academic Auto-Pilot", page_icon="🎓", layout="wide")
+
+# ==========================================
+# CUSTOM CSS INJECTION (The UI Upgrade)
+# ==========================================
+st.markdown("""
+<style>
+    /* Hide the default Streamlit top menu and footer for a cleaner look */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Modern Button Styling */
+    .stButton>button {
+        border-radius: 12px;
+        background-color: #6366f1; /* Indigo color */
+        color: white;
+        font-weight: 600;
+        border: none;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .stButton>button:hover {
+        background-color: #4f46e5;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        color: white;
+    }
+    
+    /* Soften the background of the text area */
+    .stTextArea textarea {
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background-color: #f8fafc;
+    }
+    
+    /* Style the file uploader */
+    [data-testid="stFileUploadDropzone"] {
+        border-radius: 16px;
+        border: 2px dashed #cbd5e1;
+        background-color: #f8fafc;
+        transition: all 0.3s ease;
+    }
+    [data-testid="stFileUploadDropzone"]:hover {
+        border-color: #6366f1;
+        background-color: #e0e7ff;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ==========================================
 # SECURE API KEY LOADING
 # ==========================================
 API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -19,10 +73,6 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# ==========================================
-# PAGE CONFIGURATION
-# ==========================================
-st.set_page_config(page_title="Academic Auto-Pilot", page_icon="🎓", layout="wide")
 st.title("🎓 Autonomous Academic Auto-Pilot")
 st.subheader("Drag & drop your syllabus. Let the AI research, schedule, and organize your success.")
 
@@ -96,6 +146,18 @@ with col1:
 
 with col2:
     st.markdown("### 🚀 2. Agent Dashboard")
+    
+    # NEW UI: Modern Metric Dashboard Cards
+    dash_col1, dash_col2, dash_col3 = st.columns(3)
+    with dash_col1:
+        st.metric(label="Agent Status", value="Online", delta="Ready")
+    with dash_col2:
+        st.metric(label="Tasks Scheduled", value="0", delta="Awaiting Input")
+    with dash_col3:
+        st.metric(label="Time Saved", value="0 hrs", delta="Let's go!")
+        
+    st.divider()
+
     if st.button("Activate Multi-Tool Agent", use_container_width=True):
         if raw_text:
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
@@ -116,35 +178,35 @@ with col2:
                     st.markdown("#### 📊 Identified Tasks:")
                     st.dataframe(extracted_data["tasks"], use_container_width=True)
                     
-                    st.markdown("#### 🤖 Agent Action Log:")
-                    
-                    # Phase 2: Autonomous Tool Execution
-                    for task in extracted_data["tasks"]:
-                        title = task["title"]
-                        category = task["category"]
-                        
-                        prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
-                        
-                        agent_response = client.models.generate_content(
-                            model='gemini-2.5-flash',
-                            contents=prompt,
-                            config=types.GenerateContentConfig(
-                                tools=[create_calendar_event, create_google_doc, research_topic],
-                                temperature=0.1,
-                            ),
-                        )
-                        
-                        if agent_response.function_calls:
-                            for function_call in agent_response.function_calls:
-                                tool_name = function_call.name
-                                tool_args = function_call.args
-                                
-                                if tool_name in tool_map:
-                                    # Execute the tool and show it on screen
-                                    tool_map[tool_name](**tool_args)
+                    # NEW UI: Collapsible Action Log Expander
+                    with st.expander("🤖 View Agent Action Log", expanded=True):
+                        # Phase 2: Autonomous Tool Execution
+                        for task in extracted_data["tasks"]:
+                            title = task["title"]
+                            category = task["category"]
+                            
+                            prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
+                            
+                            agent_response = client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt,
+                                config=types.GenerateContentConfig(
+                                    tools=[create_calendar_event, create_google_doc, research_topic],
+                                    temperature=0.1,
+                                ),
+                            )
+                            
+                            if agent_response.function_calls:
+                                for function_call in agent_response.function_calls:
+                                    tool_name = function_call.name
+                                    tool_args = function_call.args
                                     
-                        # THE FIX: 15-second cooldown to stay completely under Google's 5-RPM limit
-                        time.sleep(15)
+                                    if tool_name in tool_map:
+                                        # Execute the tool and show it on screen
+                                        tool_map[tool_name](**tool_args)
+                                        
+                            # 15-second cooldown to stay completely under Google's 5-RPM limit
+                            time.sleep(15)
                                     
                 except Exception as e:
                     st.error(f"Agent encountered an error: {e}")
