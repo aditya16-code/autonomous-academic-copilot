@@ -138,9 +138,9 @@ with col2:
         if raw_text.strip():
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
                 try:
-                    # USING 2.0-FLASH FOR EXTRACTION
+                    # USING EXACT VERSION STRING TO AVOID 404
                     response = client.models.generate_content(
-                        model='gemini-2.0-flash',
+                        model='gemini-1.5-flash-002',
                         contents=raw_text,
                         config=types.GenerateContentConfig(
                             system_instruction=parser_instructions,
@@ -164,9 +164,9 @@ with col2:
                             category = task["category"]
                             prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
                             
-                            # USING 2.0-FLASH FOR TOOLS
+                            # USING EXACT VERSION STRING TO AVOID 404
                             agent_response = client.models.generate_content(
-                                model='gemini-2.0-flash',
+                                model='gemini-1.5-flash-002',
                                 contents=prompt,
                                 config=types.GenerateContentConfig(
                                     tools=[create_calendar_event, create_google_doc, research_topic],
