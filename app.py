@@ -13,30 +13,26 @@ from pydantic import BaseModel, Field
 st.set_page_config(page_title="Academic Auto-Pilot", page_icon="🎓", layout="wide")
 
 # ==========================================
-# CUSTOM CSS INJECTION (The UI Upgrade)
+# CUSTOM CSS INJECTION (DARK MODE)
 # ==========================================
 st.markdown("""
 <style>
-    /* Hide the default Streamlit top menu and footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Force Pure Black Background and White Text */
     .stApp {
         background-color: #000000;
         color: #ffffff;
     }
     
-    /* Ensure all headers and text are white */
     h1, h2, h3, h4, h5, h6, p, label, span {
         color: #ffffff !important;
     }
     
-    /* Modern Button Styling */
     .stButton>button {
         border-radius: 12px;
-        background-color: #6366f1; /* Indigo accent color */
+        background-color: #6366f1;
         color: white !important;
         font-weight: 600;
         border: none;
@@ -50,7 +46,6 @@ st.markdown("""
         box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
     }
     
-    /* Text Area Styling for Dark Mode */
     .stTextArea textarea {
         border-radius: 12px;
         border: 1px solid #333333;
@@ -58,7 +53,6 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    /* File Uploader Styling for Dark Mode */
     [data-testid="stFileUploadDropzone"] {
         border-radius: 16px;
         border: 2px dashed #444444;
@@ -70,14 +64,12 @@ st.markdown("""
         background-color: #1a1b26;
     }
     
-    /* Expander and Dataframe tweaks */
     [data-testid="stExpander"] {
         background-color: #0a0a0a;
         border: 1px solid #333333;
         border-radius: 8px;
     }
     
-    /* Make metric values pop */
     [data-testid="stMetricValue"] {
         color: #6366f1 !important;
     }
@@ -100,28 +92,24 @@ st.title("🎓 Autonomous Academic Auto-Pilot")
 st.subheader("Drag & drop your syllabus. Let the AI research, schedule, and organize your success.")
 
 # ==========================================
-# AUTONOMOUS TOOLS (The Agent's "Hands")
+# AUTONOMOUS TOOLS
 # ==========================================
 def create_calendar_event(task_title: str, start_time: str, duration_hours: int):
-    """Autonomously blocks out a dedicated study window in the user's calendar."""
     message = f"✅ CALENDAR: Scheduled '{task_title}' for {duration_hours} hours starting at {start_time}"
     st.success(message)
     return message
 
 def create_google_doc(document_title: str, assignment_type: str):
-    """Autonomously creates a Google Doc starter template for essays, projects, or papers."""
     header = "Name: Aditya Agarwal | Roll No: 2401640100068"
     message = f"📝 WORKSPACE: Created '{document_title}' template. (Auto-filled header: {header})"
     st.info(message)
     return message
 
 def research_topic(topic: str):
-    """Autonomously searches academic databases for sources related to the project topic."""
     message = f"🔍 RESEARCH: Found 3 peer-reviewed sources for '{topic}' and attached them to your Workspace."
     st.warning(message) 
     return message
 
-# Map the functions so Gemini can call them
 tool_map = {
     "create_calendar_event": create_calendar_event,
     "create_google_doc": create_google_doc,
@@ -158,19 +146,16 @@ with col1:
     
     syllabus_text = ""
     if uploaded_file is not None:
-        # Extract text from the PDF!
         pdf_reader = PyPDF2.PdfReader(uploaded_file)
         for page in pdf_reader.pages:
             syllabus_text += page.extract_text() + "\n"
         st.success("PDF Extracted Successfully!")
     
-    # Fallback text area
     raw_text = st.text_area("Or paste raw text:", value=syllabus_text, height=200)
 
 with col2:
     st.markdown("### 🚀 2. Agent Dashboard")
     
-    # NEW UI: Modern Metric Dashboard Cards
     dash_col1, dash_col2, dash_col3 = st.columns(3)
     with dash_col1:
         st.metric(label="Agent Status", value="Online", delta="Ready")
@@ -185,9 +170,9 @@ with col2:
         if raw_text:
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
                 try:
-                    # Phase 1: Data Extraction
+                    # Phase 1: Data Extraction (SWAPPED TO 1.5-FLASH)
                     response = client.models.generate_content(
-                        model='gemini-2.5-flash',
+                        model='gemini-1.5-flash',
                         contents=raw_text,
                         config=types.GenerateContentConfig(
                             system_instruction=parser_instructions,
@@ -201,7 +186,6 @@ with col2:
                     st.markdown("#### 📊 Identified Tasks:")
                     st.dataframe(extracted_data["tasks"], use_container_width=True)
                     
-                    # NEW UI: Collapsible Action Log Expander
                     with st.expander("🤖 View Agent Action Log", expanded=True):
                         # Phase 2: Autonomous Tool Execution
                         for task in extracted_data["tasks"]:
@@ -210,8 +194,9 @@ with col2:
                             
                             prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
                             
+                            # Phase 2 Tool Execution (SWAPPED TO 1.5-FLASH)
                             agent_response = client.models.generate_content(
-                                model='gemini-2.5-flash',
+                                model='gemini-1.5-flash',
                                 contents=prompt,
                                 config=types.GenerateContentConfig(
                                     tools=[create_calendar_event, create_google_doc, research_topic],
@@ -225,11 +210,10 @@ with col2:
                                     tool_args = function_call.args
                                     
                                     if tool_name in tool_map:
-                                        # Execute the tool and show it on screen
                                         tool_map[tool_name](**tool_args)
                                         
-                            # 15-second cooldown to stay completely under Google's 5-RPM limit
-                            time.sleep(15)
+                            # Lowered cooldown to 3 seconds since 1.5-flash allows much faster requests!
+                            time.sleep(3)
                                     
                 except Exception as e:
                     st.error(f"Agent encountered an error: {e}")
