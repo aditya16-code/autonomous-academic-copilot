@@ -102,7 +102,7 @@ with col2:
                 try:
                     # Phase 1: Data Extraction
                     response = client.models.generate_content(
-                        model='gemini-2.0-flash',
+                        model='gemini-2.5-flash',
                         contents=raw_text,
                         config=types.GenerateContentConfig(
                             system_instruction=parser_instructions,
@@ -126,7 +126,7 @@ with col2:
                         prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
                         
                         agent_response = client.models.generate_content(
-                            model='gemini-2.0-flash',
+                            model='gemini-2.5-flash',
                             contents=prompt,
                             config=types.GenerateContentConfig(
                                 tools=[create_calendar_event, create_google_doc, research_topic],
