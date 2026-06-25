@@ -22,19 +22,11 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6, p, label, span { color: #ffffff !important; }
     
     .stButton>button {
-        border-radius: 12px;
-        background-color: #6366f1;
-        color: white !important;
-        font-weight: 600;
-        border: none;
-        padding: 0.5rem 1rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        border-radius: 12px; background-color: #6366f1; color: white !important;
+        font-weight: 600; border: none; padding: 0.5rem 1rem;
+        transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     }
-    .stButton>button:hover {
-        background-color: #4f46e5;
-        transform: translateY(-2px);
-    }
+    .stButton>button:hover { background-color: #4f46e5; transform: translateY(-2px); }
     
     .stTextArea textarea {
         border-radius: 12px; border: 1px solid #333333;
@@ -138,9 +130,9 @@ with col2:
         if raw_text.strip():
             with st.spinner("🧠 Agent is analyzing and executing tools..."):
                 try:
-                    # USING EXACT VERSION STRING TO AVOID 404
+                    # FULLY SUPPORTED ACTIVE MODEL
                     response = client.models.generate_content(
-                        model='gemini-1.5-flash-002',
+                        model='gemini-2.5-flash',
                         contents=raw_text,
                         config=types.GenerateContentConfig(
                             system_instruction=parser_instructions,
@@ -164,9 +156,9 @@ with col2:
                             category = task["category"]
                             prompt = f"I have a task: '{title}'. It is a {category} assignment requiring {task['estimated_hours']} hours. Take the necessary actions to schedule it, create a workspace if it requires writing, and research it if it is a project or academic paper."
                             
-                            # USING EXACT VERSION STRING TO AVOID 404
+                            # FULLY SUPPORTED ACTIVE MODEL
                             agent_response = client.models.generate_content(
-                                model='gemini-1.5-flash-002',
+                                model='gemini-2.5-flash',
                                 contents=prompt,
                                 config=types.GenerateContentConfig(
                                     tools=[create_calendar_event, create_google_doc, research_topic],
